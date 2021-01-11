@@ -1,3 +1,52 @@
+#################################################################################################################
+# errtype별 설명 
+# 1 : errcode가 0과 문자로 이루어짐, 오전 2시~5시 사이에 많이 발생
+# 2 : errcode 0,1로 구성
+# 3 : errcode 0,1,2로 구성
+# 4 : errcode 0,1로 구성, 발생횟수와 불만접수에 영향이 있어보임
+# 5 : errcode 다양한 문자로 구성(알파벳 - 숫자)  ex)B - A8002, S - 61001
+# 6 : errcode  1, 14로 구성
+# 7 : errcode  1, 14로 구성, 11월 14일 11시에 비정상적으로 많이 발생
+# 8 : 20, PHONE_ERR, PUBLIC_ERR 3가지로 구성. 11월 23일 22시 많이 발생
+# 9 : errcode V/C - 숫자 5자리로 구성, ex) V-21002, C-12032
+# 10 : errcode 1로 구성. 크게 영향이 없어보임
+# 11,12 : errcode 1로 구성. 오전 2시~5시 사이 많이 발생. errtype 1과 비슷한듯, errtype 11,12 패턴이 거의 유사
+# 13 : errcode 1로 구성. 11월 3일 10이 많이 발생.
+# 14 : errcode 1, 13, 14로 구성
+# 15 : errcode 1로만 구성. 2~4시에 많이 발생
+# 16 : errcode 1로 구성. 17~19시 많이 말생
+# 17 : errcode 1, 12 ,13, 14, 21로 구성. 6~9시 많이 발생
+# 18 : errcode 1로 구성
+# 19 : errcode 1로 구성
+# 20 : errcode 1로 구성, errtype 18과 패턴 비슷한듯
+# 21 : errcode 1로 구성, errtype 19와 패턴 비슷한듯
+# 22 : errcode 1로 구성, 19~22시 많이 발생
+# 23 : connection과 관련된 errcode로 구성, connection timeout이 가장 많음, 17~22시 사이 많이 발생
+# 24 : errcode 1로 구성
+# 25 : connection과 관련된 errcode로 구성
+# 26 : errcode 1로 구성. 0시에 두드러지게 많이 발생. 7~9시 사이에도 많이 발생
+# 27,28 : errcode 1로 구성, 11월 17일 10시, 11월 18일 13시 많이 발생. 거의 비슷하게 발생하는 것으로 보임
+# 29 : 데이터에 존재하지 않음
+# 30 : errcode 0~4까지 존재
+# 31 : errcode 0,1로 구성, 17~19시 많이 발생. 발생횟수와 불만 접수에 영향이 있어보임
+# 32 : 매우 많은 errcode 존재(음수도 존재). 규칙성을 모르겠음
+# 33 : errcode 1~3 존재. 2~4시 사이 많이 발생
+# 34 : errcode 1~6 존재. 18~21시 많이 발생
+# 35 : errcode 1로 구성.11월 12일 3시 많이 발생
+# 36 : errcode 8.0 하나 존재. 3~4시 많이 발생하며, 10,11,12,24,25 등 두드러지게 많이 발생한 날이 있음
+# 37 : errcode 0,1로 구성. errtype 36과 매우 유사한 패턴을 보임
+# 38 : 2653개 종류의 errcode로 구성.
+# 39 : errcode 0,1로 구성. 22~23시에 많이 발생
+# 40 : errcode 0,1로 구성. 17~23시에 많이 발생
+# 41 : errcode NFANDROID2 하나 존재. 18~22시 많이 발생 
+# 42 : errcode 2,3으로 구성. 2~4시 사이에 거의 발생하며 점점 많이 발생하는 추세
+
+# tmp_errtype = 42
+# train_err_data[errtype %in% c(tmp_errtype), .N, by=.(errcode)][order(-N)]
+# train_err_data[errtype == tmp_errtype, .N, by=.(hour)][order(-N)]
+#################################################################################################################
+
+
 setwd('C:/Users/seokwon/Desktop/study/dacon_LG_forecast')
 #################################################################################################################
 # Load library
@@ -9,7 +58,7 @@ library(stringr)
 library(lubridate)
 library(forcats)
 library(dplyr)
-
+library(corrplot)
 #################################################################################################################
 # Load Train Data
 #################################################################################################################
@@ -35,7 +84,13 @@ train_err_data[,hour := hour(time)]
 train_err_data[,min := minute(time)]
 # train_err_data[,sec := second(time)]
 train_err_data[,ymd_h := ymd_h(paste(year,month,day,hour ,sep = '-'))]
-# train_err_data[,ymd_hm := ]
+#factor변수 처리
+train_err_data[,user_id := as.factor(user_id)]
+train_err_data[,model_nm := as.factor(model_nm)]
+train_err_data[,fwver := as.factor(fwver)]
+train_err_data[,errtype := as.factor(errtype)]
+train_err_data[,errcode := as.factor(errcode)]
+
 
 # train_problem_data 전처리
 train_problem_data[,time := parse_date_time(time, orders = c("ymdHMS"))]
@@ -46,7 +101,8 @@ train_problem_data[,hour := hour(time)]
 train_problem_data[,min := minute(time)]
 # train_problem_data[,sec := second(time)]
 train_problem_data[,ymd_h := ymd_h(paste(year,month,day,hour ,sep = '-'))]
-
+#factor변수 처리
+train_problem_data[,user_id := as.factor(user_id)]
 
 # train_quality_data 전처리
 #중복데이터가 많음 -> 일단 제거
@@ -67,7 +123,9 @@ train_quality_data[,quality_10 := as.integer(str_remove_all(quality_10, ','))]
 # quality0,2이 numeric type -> int type
 train_quality_data[,quality_0 := as.integer(quality_0)]
 train_quality_data[,quality_2 := as.integer(quality_2)]
-
+#factor변수 처리
+train_quality_data[,user_id := as.factor(user_id)]
+train_quality_data[,fwver := as.factor(fwver)]
 
 
 #시간대 별 user_id당 errtype개수 데이터
@@ -103,7 +161,6 @@ tmp_user_id = top_data_user_id[N,user_id]
 tmp <- train_err_data[user_id == tmp_user_id, .N, by=.(ymd_h)][order(ymd_h)]
 ggplot(tmp, aes(x=ymd_h, y=N)) + geom_line() + theme_bw() + labs(title = str_interp('user_id : ${tmp_user_id}'))
 train_err_data[user_id == tmp_user_id, .N, by=.(errtype)]
-
 
 
 #데이터 개수 10000개 이하인 user_id만 선택한 뒤 user_id별 데이터 개수 histogram
@@ -202,12 +259,26 @@ g <- ggplot(errtype_time_data_count, aes(x=ymd, y=N, col=errtype)) + geom_line(s
 ggplotly(g)
 
 
+# errtype별 corr
+# 1,11,12,15,33,42
+# 4,16,17,31,40,41
+# 18,19,20,21
+# 26,27
+# 36,37
+errtype_corr_data <- errtype_time_data_count[,.(ymd, errtype, N)] 
+errtype_corr_data_dcast <- dcast(errtype_corr_data, ymd ~ errtype, value.var = 'N')
+for (i in as.numeric(names(errtype_corr_data_dcast[,2:42]))){
+  eval(parse(text = paste0("errtype_corr_data_dcast[is.na(`",i,"`), `",i,"` := 0]")))
+}
+corrplot(cor(errtype_corr_data_dcast[,2:42]))
+
+
 
 # 22, 23번에 속한 errcode 종류 및 개수 
 # -> 뭔가 connection 관련 에러가 많아보임
 train_err_data[errtype %in% c(22,23), .N, by=.(errcode)]
 train_err_data[errtype %in% c(23), .N, by=.(errcode)][order(-N)]
-train_err_data[errtype %in% c(22), .N, by=.(errcode)][order(-N)]
+train_err_data[errtype %in% c(15), .N, by=.(errcode)][order(-N)]
 # 23번이 connection 관련 에러인듯
 train_err_data[str_detect(errcode, 'connection'), .N, by=.(errtype)]
 
@@ -289,8 +360,13 @@ problem_user_id <- unique(train_problem_data[,user_id])
 train_err_data_with_problem <- train_err_sub_data[user_id %in% problem_user_id]
 train_err_data_without_problem <- train_err_sub_data[!user_id %in% problem_user_id]
 
-#전체 데이터 중 문제 있는 user에 해당하는 데이터 약 45.8%
+#전체 데이터 중 문제 있는 user에 해당하는 데이터
 nrow(train_err_data_with_problem)/nrow(train_err_data)
+
+# 불만 있는 유저데이터의 errtype별 개수
+# -> errtype 29가 없음
+train_err_data_without_problem[,.N,by=.(errtype)][order(-N)]
+
 
 max_problem_time <- train_problem_data[,.('max_problem_time' = max(time)), by=.(user_id)]
 
@@ -385,3 +461,27 @@ count_by_errtype_total = rbind(count_by_errtype1, count_by_errtype2)
 ggplot(count_by_errtype_total, aes(x=errcode, y=PER, fill=problem)) +
   geom_bar(stat = 'identity', position = 'dodge') + coord_flip() +theme_bw() + labs(title = '불만 유무에 따른 errtype 비율')
 
+
+
+#################################################################################################################
+# 개별 user_id 대상으로 EDA
+#################################################################################################################
+train_problem_data[,.N,by=.(user_id)][order(-N)][1:20]
+
+# 1. user = 24407 : 불만접수 개수가 5개로 가장 많음 
+tmp_user_id = 20636
+train_err_data_user <- train_err_data[user_id == tmp_user_id]
+train_problem_data_user <- train_problem_data[user_id == tmp_user_id]
+train_quality_data_user <- train_quality_data[user_id == tmp_user_id]
+errtype_by_time <- train_err_data_user[,.N,by=.(errtype,ymd_h)]
+
+# 시간대 별 errtype발생 개수와 불만접수 시간 시각화
+# -> # 15, 16, 26, 31번 확인필요
+g <- ggplot(errtype_by_time, aes(x=ymd_h, y=N, col=errtype)) + geom_line() + 
+      geom_vline(data=train_problem_data_user, aes(xintercept = as.numeric(time)), linetype="dashed", color = "red") +
+      scale_x_datetime(breaks = '1 days', date_labels = '%d') +
+      theme_bw()
+
+ggplotly(g)
+errtype_by_time[,.N,by=.(errtype)][order(-N)]
+train_err_data[errtype %in% c(28), .N, by=.(errcode)][order(-N)]
